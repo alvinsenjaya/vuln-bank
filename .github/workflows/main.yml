@@ -74,7 +74,7 @@ jobs:
           fi
       
           # Check SAST for warnings
-          if [ -s snyk_sast_results.json ] && jq -e '.runs[].tool.results[]? | select(.level=="warning")' snyk_sast_results.json > /dev/null 2>&1; then
+          if [ -s snyk_sast_results.json ] && jq -e '.runs[].results[]? | select(.level=="warning")' snyk_sast_results.json > /dev/null 2>&1; then
             echo "SAST found warnings!"
             ALERT=true
             send_alert "⚠️ **SAST Alert**: Security warnings detected! Check logs for details."
