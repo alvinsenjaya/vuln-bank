@@ -48,40 +48,45 @@ jobs:
         run: |
           ALERT=false
       
+          send_alert() {
+            local report_file=$1
+            local alert_type=$2
+            local message=$3
+      
+            # Read the JSON file and format it for Discord
+            REPORT_JSON=$(jq -Rs '.' < "$report_file")
+            PAYLOAD=$(jq -n --arg msg "$message" --arg report "$REPORT_JSON" '{content: "\($msg) 📜 Report: ```json\n\($report)\n```"}')
+      
+            # Send to Discord
+            curl -H "Content-Type: application/json" -X POST -d "$PAYLOAD" ${{ secrets.DISCORD_WEBHOOK }}
+          }
+      
           # Check TruffleHog for credentials
           if [ -s trufflehog_results.json ]; then
             echo "TruffleHog found credentials!"
             ALERT=true
-            curl -H "Content-Type: application/json" \
-                 -X POST \
-                 -d "$(jq -Rs '{content: "⚠️ **TruffleHog Alert**: Potential credentials found! 📜 Report:```" + . + "```"}' < trufflehog_results.json)" \
-                 ${{ secrets.DISCORD_WEBHOOK }}
+            send_alert "trufflehog_results.json" "TruffleHog Alert" "⚠️ **TruffleHog Alert**: Potential credentials found!"
           fi
       
           # Check SCA for high/critical issues
           if jq -e '.vulnerabilities[] | select(.severity=="high" or .severity=="critical")' snyk_sca_results.json > /dev/null; then
             echo "SCA found high/critical vulnerabilities!"
             ALERT=true
-            curl -H "Content-Type: application/json" \
-                 -X POST \
-                 -d "$(jq -Rs '{content: "⚠️ **SCA Alert**: High/Critical vulnerabilities found! 📜 Report:```" + . + "```"}' < snyk_sca_results.json)" \
-                 ${{ secrets.DISCORD_WEBHOOK }}
+            send_alert "snyk_sca_results.json" "SCA Alert" "⚠️ **SCA Alert**: High/Critical vulnerabilities found!"
           fi
       
           # Check SAST for high/critical issues
           if jq -e '.issues[] | select(.severity=="high" or .severity=="critical")' snyk_sast_results.json > /dev/null; then
             echo "SAST found high/critical issues!"
             ALERT=true
-            curl -H "Content-Type: application/json" \
-                 -X POST \
-                 -d "$(jq -Rs '{content: "⚠️ **SAST Alert**: High/Critical security issues found! 📜 Report:```" + . + "```"}' < snyk_sast_results.json)" \
-                 ${{ secrets.DISCORD_WEBHOOK }}
+            send_alert "snyk_sast_results.json" "SAST Alert" "⚠️ **SAST Alert**: High/Critical security issues found!"
           fi
       
           # Exit with failure if any alerts were triggered
           if [ "$ALERT" = true ]; then
             exit 1
           fi
+
 
 
       - name: Log in to DockerHub
